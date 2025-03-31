@@ -467,18 +467,11 @@ input:focus {
 }
 
 
-#groupsList::-webkit-scrollbar {
-  width: 6px;
+.approvals-section::-webkit-scrollbar {
+  display: none;
 }
 
-#groupsList::-webkit-scrollbar-thumb {
-  background: #a5a5d1; 
-  border-radius: 4px;
-}
 
-#groupsList::-webkit-scrollbar-track {
-  background: #d5d5eb;
-}
 
 #groupsList li {
   background: #272757; 
@@ -790,18 +783,10 @@ input, select {
 }
 
 
-.container::-webkit-scrollbar {
-  width: 6px;
+.approvals-section::-webkit-scrollbar {
+  display: none;
 }
 
-.container::-webkit-scrollbar-thumb {
-  background: #a5a5d1;
-  border-radius: 4px;
-}
-
-.container::-webkit-scrollbar-track {
-  background: #d5d5eb; 
-}
 
 
 
@@ -843,7 +828,7 @@ input, select {
 }
 
 
-.expenses-section, .balances-section {
+.expenses-section, .balances-section , .approvals-section {
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -853,7 +838,7 @@ input, select {
   overflow: hidden;
 }
 
-.expenses-section h3, .balances-section h3 {
+.expenses-section h3, .balances-section h3, .approvals-section h3 {
   margin: 0;
   padding: 10px;
   text-align: center;
@@ -861,7 +846,7 @@ input, select {
   color: white;
 }
 
-#expenses-list, #balance-list {
+#expenses-list, #balance-list,#approval-list{
   flex: 1;
   overflow-y: auto;
   padding: 15px;
@@ -869,7 +854,7 @@ input, select {
   list-style: none;
 }
 
-#expenses-list li, #balance-list li {
+#expenses-list li, #balance-list li ,#approval-list li{
   margin-bottom: 10px;
   padding: 15px;
   border-radius: 10px;
@@ -877,7 +862,7 @@ input, select {
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
-#expenses-list li:hover, #balance-list li:hover {
+#expenses-list li:hover, #balance-list li:hover, #approval-list li {
   background-color: #d8d8e5;
 }
 
@@ -1084,7 +1069,7 @@ input, select {
     font-size: 1.2rem;
   }
 
-  .expenses-section h3, .balances-section h3 {
+  .expenses-section h3, .balances-section h3,.approvals-section h3 {
     font-size: 1rem;
     padding: 8px;
   }
@@ -1185,3 +1170,24 @@ input, select {
     }
 }
 
+.settle-button{
+    background-color: #272757;
+    color: white;
+    border-radius: 4px;
+    margin-left: 40px;
+}
+
+.settle-button:hover{
+    background-color: #8686AC;
+}
+
+.approve-button{
+  background-color: #272757;
+  color: white;
+  border-radius: 4px;
+  margin-left: 40px;
+}
+
+.approve-button:hover{
+  background-color: #8686AC;
+}

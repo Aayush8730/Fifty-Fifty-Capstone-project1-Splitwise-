@@ -169,7 +169,7 @@ logoutButton.addEventListener("click", () => {
   signupButtonNavBar.style.display = "block";
   logoutButton.style.display = "none";
   aboutButton.style.display ="block";
-
+  calculateBalances();
   // Hide dashboard and show landing page
   document.querySelector(".dashboard-container").style.display = "none";
   document.querySelector(".wrapper-div").style.display = "flex";
@@ -865,7 +865,7 @@ async function fetchGroupBalances(groupId, groupName) {
           const participants = await fetchExpenseParticipants(expense.expenseId);
 
           for (const ep of participants) {
-              if (ep.status === "PENDING") {
+              if (ep.status === "PENDING" || ep.status === "APPROVE_SETTLE") {
                   const participantId = ep.user.userId;
                   const amountOwed = parseFloat(ep.shareAmount);
 
@@ -884,17 +884,31 @@ async function fetchGroupBalances(groupId, groupName) {
       expensesList.innerHTML += "<h4>💰 Balances:</h4>";
 
       if (Object.keys(groupBalances).length === 0) {
-          expensesList.innerHTML += "<p>✅ No PENDING balances.</p>";
+          expensesList.innerHTML += "<li>✅ No PENDING balances.</li>";
       } else {
           const userMap = JSON.parse(localStorage.getItem("userMap")) || {};
-          Object.entries(groupBalances).forEach(([userId, balance]) => {
-              const userName = userMap[userId] || `User ${userId}`;
+          Object.entries(groupBalances).forEach(([payerId, balance]) => {
+              const userName = userMap[payerId] || `User ${payerId}`;
               const balanceText = balance >= 0
                   ? `You owe ${userName}: ₹${balance.toFixed(2)}`
                   : `${userName} owes you: ₹${(-balance).toFixed(2)}`;
 
-              const balanceItem = document.createElement("p");
+              const balanceItem = document.createElement("li");
               balanceItem.textContent = balanceText;
+
+              // Create and add the settle button only if you owe money (balance > 0)
+              if (balance > 0) {
+                  const settleButton = document.createElement("button");
+                  settleButton.textContent = "Settle";
+                  settleButton.classList.add("settle-button");
+                  settleButton.onclick = () => {
+                      // Trigger the settle request where you (the current user) owe money
+                      settleBalance(payerId, userId);  // payeeId is the current user (userId)
+                  };
+
+                  balanceItem.appendChild(settleButton);
+              }
+
               expensesList.appendChild(balanceItem);
           });
       }
@@ -904,5 +918,159 @@ async function fetchGroupBalances(groupId, groupName) {
 }
 
 
+async function settleBalance(payerId, payeeId) {
+  try {
+      // Send the settle request to the backend
+      const response = await fetch(`http://localhost:8090/expenses/settle-request/${payerId}?payeeId=${payeeId}`, {
+          method: "PUT",
+          headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${localStorage.getItem("token")}`, 
+          },
+      });
+
+      if (response.ok) {
+          alert("Settlement successful!");
+
+          updateBalances();  
+      } else {
+          const errorData = await response.json();
+          alert(`Error during settlement: ${errorData.message}`);
+      }
+  } catch (error) {
+      console.error("Error settling balance:", error);
+      alert("An error occurred while settling the balance. Please try again.");
+  }
+}
 
 
+async function fetchApprovalRequests() {
+  const userId = localStorage.getItem("userId");
+  if (!userId) {
+      console.error("User ID not found in localStorage");
+      return;
+  }
+
+  try {
+      const token = localStorage.getItem("token");
+
+      const response = await fetch(`http://localhost:8090/expenses/approve-requests/${userId}`, {
+          method: "GET",
+          headers: {
+              "Authorization": `Bearer ${token}`,
+              "Content-Type": "application/json"
+          }
+      });
+
+      if (!response.ok) {
+          throw new Error(`HTTP error! Status: ${response.status}`);
+      }
+
+      const text = await response.text(); 
+
+
+      if (!text.trim()) {
+          console.warn("No approval requests found.");
+          return;
+      }
+
+      let approvalRequests;
+      try {
+          approvalRequests = JSON.parse(text);
+      } catch (error) {
+          console.error("Error parsing JSON response:", error);
+          return;
+      }
+
+      const approvalList = document.getElementById("approval-list");
+      if (!approvalList) {
+          console.error("Error: approval-list element not found in the DOM");
+          return;
+      }
+
+      approvalList.innerHTML = "";
+
+      if (approvalRequests.length === 0) {
+          approvalList.innerHTML = "<li>No approval requests found.</li>";
+          return;
+      }
+
+      approvalRequests.forEach((request) => {
+          const approvalItem = document.createElement("li");
+          approvalItem.classList.add("approval-item");
+
+          const expenseDescription = request.expense.description;
+          const amount = request.shareAmount;
+          const groupName = request.expense.group.groupName;
+          const payerName = request.expense.paidBy.name;
+          const requesterName = request.user.name; 
+
+          approvalItem.innerHTML = `
+              <p><strong>Requester:</strong> ${requesterName}</p>
+              <p><strong>Group:</strong> ${groupName}</p>
+              <p><strong>Expense:</strong> ${expenseDescription}</p>
+              <p><strong>Amount to approve:</strong> ₹${amount}</p>
+              <p><strong>Payer:</strong> ${payerName}</p>
+          `;
+
+          const approveButton = document.createElement("button");
+          approveButton.textContent = "Approve";
+          approveButton.classList.add("approve-button");
+          approveButton.onclick = () => approveSettlement(request.expense.paidBy.userId, request.user.userId);
+
+          approvalItem.appendChild(approveButton);
+          approvalList.appendChild(approvalItem);
+      });
+
+  } catch (error) {
+      console.error("Error fetching approval requests:", error);
+  }
+}
+
+async function approveSettlement(payerId, payeeId) {
+  try {
+      const token = localStorage.getItem("token");
+      if (!token) {
+          console.error("Authorization token not found");
+          return;
+      }
+
+      const url = `http://localhost:8090/expenses/approve-settlement/${payeeId}?payerId=${payerId}`;
+
+      const response = await fetch(url, {
+          method: "PUT",
+          headers: {
+              "Authorization": `Bearer ${token}`,
+              "Content-Type": "application/json"
+          }
+      });
+
+      if (!response.ok) {
+          throw new Error(`HTTP error! Status: ${response.status}`);
+      }
+
+
+      const contentType = response.headers.get("content-type");
+      let result;
+      if (contentType && contentType.includes("application/json")) {
+          result = await response.json();
+      } else {
+          result = await response.text(); 
+      }
+
+      console.log("Settlement approved successfully:", result);
+      alert(result);
+
+
+      fetchApprovalRequests();
+  } catch (error) {
+      console.error("Error approving settlement:", error);
+      alert("Failed to approve settlement. Please try again.");
+  }
+}
+
+
+window.onload = function () {
+  fetchApprovalRequests();
+  calculateBalances();
+};
